@@ -1,0 +1,26 @@
+Put a Pic on It!
+
+Called like:
+
+http://putapicon.it/:width/:height?q=:image_search_string
+e.g. http://putapicon.it/400/200?q=puppies
+
+or 
+
+http://putapicon.it/:square?q=image_search_string
+e.g. http://putapicon.it/350?q=kittens
+
+or
+
+http://putapicon.it/:width_by_height?q=image_search_string
+e.g. http://putapicon.it/350x450?q=cute+animals
+
+or 
+
+http://putapicon.it/:common_ad_size?q=image_search_string
+e.g. http://putapicon.it/skyscraper?q=bicycles
+
+
+The first time a query string is used, we have to run a Google image search, download the original images,
+and resize them to your specification. After that, the image is cached and ready to go in that size. If you 
+request another size with the same query string we skip the download and just resize the cached originals.
