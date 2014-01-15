@@ -1,6 +1,6 @@
 class PlaceWhat
 
-  attr_accessor :width, :height, :images, :resized_images
+  attr_accessor :width, :height, :image_paths, :resized_images, :images
 
   AD_TYPES = {"skyscraper"        => "120x600", 
               "halfpage"          => "300x600", 
@@ -28,30 +28,37 @@ class PlaceWhat
     @seed     = options[:seed]
     @refresh  = options[:refresh].not_blank? ? true : false
 
+    @image_paths    = []
     @images         = []
     @resized_images = []
   end
 
-  def normalize_query
-    @query.gsub(/\s/, /\_/).downcase
-  end
+  def seeding_images?
+    @seed.not_blank?
+  end 
 
-  def image_folder
-    "./cache/images/#{@query}/#{@width}/#{@height}"
+  def self.normalize_query(q)
+    q.gsub(/\s+|\W+/, "_").downcase
   end
 
   def original_folder
-    "./cache/images/#{@query}/original"
+    "./cache/images/#{PlaceWhat.normalize_query(@query)}/original"
+  end
+
+  def paths_to_local_originals
+    Dir.glob("#{original_folder}/*.jpg") 
   end
 
   def get_cached_images
     if stored_images = get_images and stored_images.size > 4
       @resized_images = stored_images
-    elsif originals = Dir.glob("#{original_folder}/*.jpg") and originals.size > 4
+
+    elsif originals = paths_to_local_originals and originals.size > 4
       puts "Found originals, but not the requested size. Need to resize."
-      @images = originals 
-      size_images(:have_originals => true)
+      @image_paths = originals 
+      process_images(:have_originals => true)
     end
+
     return @resized_images.not_blank? ? true : false
   end
 
@@ -64,75 +71,67 @@ class PlaceWhat
                                   :file_type => :jpg, 
                                   :safety_level => :off)
 
-    if @seed.not_blank? and all_images = g.all.map {|i| i.uri }
-      @images = all_images
+    if seeding_images? and all_images = g.all.map {|i| i.uri }
+      @image_paths = all_images
+
     elsif response = g.get_hash and response.not_blank? and response["responseData"]["results"].not_blank?
-      @images = response["responseData"]["results"].map {|i| i["url"] }
+      @image_paths = response["responseData"]["results"].map {|i| i["url"] }
+
     else
       retrieve_images
+
     end
-  end
-
-  def self.size_image(blob, options={})
-    mini_magick_image = MiniMagick::Image.read(blob)
-
-    mini_magick_image.combine_options do |c|
-      c.resize "#{options[:width]}x#{options[:height]}^"
-      c.gravity "center"
-      c.background "white"
-      c.extent "#{options[:width]}x#{options[:height]}"
-      c.strip
-      c.colorspace "RGB"
-    end
-
-    mini_magick_image.to_blob
   end
 
   def image_key
-    "placewhat:#{@query.gsub(/\W/, '_').downcase}/#{@width}/#{@height}"
+    "placewhat:#{PlaceWhat.normalize_query(@query)}/#{@width}/#{@height}"
   end
 
   def get_images
-    JSON.parse(@redis.get(image_key)) rescue []
+    JSON.parse(@redis.get(image_key)).reject {|i| i.blank? } rescue []
   end
 
   def set_images
     puts "Saving #{image_key}"
-    @redis.set image_key, @resized_images.to_json
+    @redis.set(image_key, @resized_images.to_json)
   end
 
-  def write_file(blob, options = {})
-    file_name = (('a'..'z').to_a + (0..9).to_a + ('A'..'Z').to_a).shuffle[0,8].join
-    folder = options[:original].not_blank? ? original_folder : image_folder
-    path = Pathname.new(folder)
-    path.mkpath if !path.exist? 
-
-    file = File.new(path.to_s + "/#{@query.gsub(/\W/, '_').downcase}_#{file_name}.jpg", "w")
-    file.write(blob)
-    file.close
-
-    File.basename(file.path)
+  def image_options
+    {:width => @width, :height => @height, :query => @query}
   end
 
-  def size_images(options = {})
-    images.each do |uri|
+  def process_images(options = {})
+    image_paths[0..0].each do |uri|
       begin
-        blob = open(uri).read
-        write_file(blob, :original => true) if options[:have_originals].blank?
-        resized = PlaceWhat.size_image(blob, {:width => @width, :height => @height})
-        @resized_images << "/images/#{@query}/#{@width}/#{@height}/#{write_file(resized)}"
+        image = Image.new(uri, image_options)
+        image.read_write_resize
+        @resized_images << image.resized_path
+
       rescue => e
         puts "#{e}: #{e.backtrace}"
+
       end
     end
-    set_images if @resized_images.not_blank? and @resized_images.size > 4
+
+    set_images if @resized_images.not_blank?
+
+    image_paths[1..-1].each do |uri|
+      begin
+        ResizeImage.perform_async(uri, @query, @width, @height)
+
+      rescue => e
+        puts "#{e}: #{e.backtrace}"
+
+      end
+    end
+    
     true
   end
 
   def run(options={})
     if @refresh or !get_cached_images
       retrieve_images
-      size_images
+      process_images
     end
   end
 
