@@ -1,27 +1,27 @@
 Put a Pic on It!
 
 Called like:
-```
-http://putapicon.it/:width/:height/:image_search_string.jpg
-```
+
+    http://putapicon.it/:width/:height/:image_search_string.jpg
+
 e.g. http://putapicon.it/400/200/puppies.jpg
 
 or 
-```
-http://putapicon.it/:square/mage_search_string.jpg
-```
+
+    http://putapicon.it/:square/mage_search_string.jpg
+
 e.g. http://putapicon.it/350/kittens+and+puppies.jpg
 
 or
-```
-http://putapicon.it/:width_by_height/image_search_string.jpg
-```
+
+    http://putapicon.it/:width_by_height/image_search_string.jpg
+
 e.g. http://putapicon.it/350x450/cute+animals.jpg
 
 or 
-```
-http://putapicon.it/:common_ad_size/image_search_string.jpg
-```
+
+    http://putapicon.it/:common_ad_size/image_search_string.jpg
+
 e.g. http://putapicon.it/skyscraper?bicycles.jpg
 
 
