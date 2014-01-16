@@ -24,7 +24,7 @@ class PlaceWhat
     @redis    = Redis.new
     @width    = options[:width]
     @height   = options[:height]
-    @query    = options[:query]
+    @query    = options[:query].gsub("_", " ") rescue "puppies"
     @seed     = options[:seed]
     @refresh  = options[:refresh].not_blank? ? true : false
 
@@ -69,7 +69,7 @@ class PlaceWhat
   def retrieve_images
     g = Google::Search::Image.new(:query => @query, 
                                   :file_type => :jpg, 
-                                  :safety_level => :off)
+                                  :safety_level => :active)
 
     if seeding_images? and all_images = g.all.map {|i| i.uri }
       @image_paths = all_images
@@ -129,7 +129,7 @@ class PlaceWhat
   end
 
   def run(options={})
-    if @refresh or !get_cached_images
+    if @refresh or !get_cached_images or seeding_images?
       retrieve_images
       process_images
     end

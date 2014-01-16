@@ -3,6 +3,7 @@ set :app_file, __FILE__
 set :public_folder, 'public'
 set :static, true
 set :root, File.dirname(__FILE__)
+set :show_exceptions, false
 
 # placewhat, whatadver, whatholder, putapicon.it
 
@@ -74,6 +75,14 @@ class PlaceWhatApp < Sinatra::Application
 
   get "/*" do 
     send_file "./public/index.html" 
+  end
+
+  not_found do
+    send_file "./public/index.html" 
+  end
+
+  error do
+    "Oops. Something went wrong. Head on back to <a href='http://putapicon.it'>putapicon.it</a>."
   end
 
 end
