@@ -27,6 +27,7 @@ class PlaceWhat
     @query    = options[:query].gsub("_", " ") rescue "puppies"
     @seed     = options[:seed]
     @refresh  = options[:refresh].not_blank? ? true : false
+    @safe     = options[:safe].not_blank? ? :off : :active
 
     @image_paths    = []
     @images         = []
@@ -68,17 +69,16 @@ class PlaceWhat
 
   def retrieve_images
     g = Google::Search::Image.new(:query => @query, 
-                                  :file_type => :jpg, 
-                                  :safety_level => :active)
+                                  :file_type => :jpg,
+                                  :image_size => :xlarge, 
+                                  :safety_level => @safe)
 
-    if seeding_images? and all_images = g.all.map {|i| i.uri }
+    if seeding_images? and all_images = g.map {|i| i.uri }.uniq
       @image_paths = all_images
 
-    elsif response = g.get_hash and response.not_blank? and response["responseData"]["results"].not_blank?
-      @image_paths = response["responseData"]["results"].map {|i| i["url"] }
-
     else
-      retrieve_images
+      # We get slightly more than 8 in case there are some duplicates
+      @image_paths = g.first(15).map {|i| i.uri }.uniq.first(8)
 
     end
   end
